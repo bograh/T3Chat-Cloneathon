@@ -20,6 +20,7 @@ const MODELS = {
   "meta-llama/llama-3.1-405b-instruct": { name: "Llama 3.1 405B" },
   "meta-llama/llama-3.1-70b-instruct": { name: "Llama 3.1 70B" },
   "meta-llama/llama-3.3-8b-instruct:free": { name: "Llama 3.3 8B (Free)" },
+  "deepseek/deepseek-chat-v3-0324:free": { name: "DeepSeek Chat V3" },
 };
 
 export const generateResponse = internalAction({
@@ -44,7 +45,7 @@ export const generateResponse = internalAction({
       );
 
       // Fallback to a default model instead of throwing an error
-      const fallbackModel = "openai/gpt-4o-mini";
+      const fallbackModel = "deepseek/deepseek-chat-v3-0324:free";
       console.log(`Falling back to default model: ${fallbackModel}`);
 
       // Update the chat to use the fallback model
@@ -79,6 +80,8 @@ export const generateResponse = internalAction({
           role: msg.role as "user" | "assistant" | "system",
           content: msg.content,
         })),
+        max_tokens: 4000,
+        temperature: 0.7,
         stream: false,
       });
 
@@ -106,6 +109,58 @@ export const generateResponse = internalAction({
   },
 });
 
+export const testTitleGeneration = internalAction({
+  args: {
+    testMessage: v.string(),
+  },
+  returns: v.string(),
+  handler: async (ctx, args) => {
+    try {
+      console.log("Testing title generation with message:", args.testMessage);
+
+      const apiKey = process.env.OPENROUTER_API_KEY;
+      console.log("API key available:", !!apiKey);
+
+      if (!apiKey) {
+        return "No API key found";
+      }
+
+      const openai = new OpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: apiKey,
+      });
+
+      console.log("Calling OpenRouter API...");
+
+      const completion = await openai.chat.completions.create({
+        model: "meta-llama/llama-3.3-8b-instruct:free",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Generate a concise, descriptive title (2-6 words) for a chat conversation based on the user's first message. Return only the title, no quotes or additional text.",
+          },
+          {
+            role: "user",
+            content: args.testMessage,
+          },
+        ],
+        max_tokens: 20,
+        temperature: 0.7,
+      });
+
+      const title =
+        completion.choices[0]?.message?.content?.trim() || "New Chat";
+      console.log("Generated title:", title);
+
+      return title;
+    } catch (error) {
+      console.error("Error in test title generation:", error);
+      return `Error: ${error instanceof Error ? error.message : "Unknown error"}`;
+    }
+  },
+});
+
 export const generateChatTitle = internalAction({
   args: {
     chatId: v.id("chats"),
@@ -114,6 +169,10 @@ export const generateChatTitle = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
+      console.log(
+        `Starting title generation for chat ${args.chatId} with message: "${args.firstUserMessage}"`
+      );
+
       const apiKey = process.env.OPENROUTER_API_KEY;
 
       if (!apiKey) {
@@ -121,10 +180,14 @@ export const generateChatTitle = internalAction({
         return null;
       }
 
+      console.log("API key found, proceeding with title generation");
+
       const openai = new OpenAI({
         baseURL: "https://openrouter.ai/api/v1",
         apiKey: apiKey,
       });
+
+      console.log("Calling OpenRouter API for title generation...");
 
       const completion = await openai.chat.completions.create({
         model: "meta-llama/llama-3.3-8b-instruct:free",
@@ -146,18 +209,179 @@ export const generateChatTitle = internalAction({
       const title =
         completion.choices[0]?.message?.content?.trim() || "New Chat";
 
+      console.log(`Generated title: "${title}"`);
+
       // Update the chat with the generated title
       await ctx.runMutation(internal.chats.updateTitleInternal, {
         chatId: args.chatId,
         title,
       });
 
-      console.log(`Generated title for chat ${args.chatId}: "${title}"`);
+      console.log(
+        `Successfully updated chat ${args.chatId} with title: "${title}"`
+      );
     } catch (error) {
       console.error("Error generating chat title:", error);
+      console.error(
+        "Error details:",
+        error instanceof Error ? error.stack : "Unknown error"
+      );
       // Don't throw error - title generation is not critical
     }
 
     return null;
+  },
+});
+
+export const generateStreamingResponse = internalAction({
+  args: {
+    chatId: v.id("chats"),
+    parentMessageId: v.id("messages"),
+  },
+  handler: async (ctx, args) => {
+    const context = await ctx.runQuery(internal.context.getContext, {
+      chatId: args.chatId,
+      parentMessageId: args.parentMessageId,
+    });
+
+    if (!context) throw new Error("Context not found");
+
+    const { chat, messages, userSettings } = context;
+    const model = MODELS[chat.model as keyof typeof MODELS];
+
+    if (!model) {
+      console.error(
+        `Unsupported model: ${chat.model}. Available models: ${Object.keys(MODELS).join(", ")}`
+      );
+
+      // Fallback to a default model instead of throwing an error
+      const fallbackModel = "deepseek/deepseek-chat-v3-0324:free";
+      console.log(`Falling back to default model: ${fallbackModel}`);
+
+      // Update the chat to use the fallback model
+      await ctx.runMutation(internal.chats.updateModel, {
+        chatId: args.chatId,
+        model: fallbackModel,
+      });
+
+      // Use the fallback model for this request
+      chat.model = fallbackModel;
+    }
+
+    let metadata: any = { model: chat.model };
+    let assistantMessageId: any = null;
+
+    try {
+      const apiKey =
+        userSettings?.apiKeys?.openrouter || process.env.OPENROUTER_API_KEY;
+
+      if (!apiKey) {
+        throw new Error("OpenRouter API key not found");
+      }
+
+      const openai = new OpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey: apiKey,
+      });
+
+      // Create an empty assistant message to stream into
+      assistantMessageId = await ctx.runMutation(
+        internal.messages.addInternal,
+        {
+          chatId: args.chatId,
+          content: "",
+          role: "assistant",
+          parentId: args.parentMessageId,
+          metadata,
+        }
+      );
+
+      console.log(
+        `Created assistant message ${assistantMessageId} for streaming`
+      );
+
+      const completion = await openai.chat.completions.create({
+        model: chat.model,
+        messages: messages.map((msg: any) => ({
+          role: msg.role as "user" | "assistant" | "system",
+          content: msg.content,
+        })),
+        max_tokens: 4000,
+        temperature: 0.7,
+        stream: true,
+      });
+
+      let fullContent = "";
+      let chunkCount = 0;
+
+      for await (const chunk of completion) {
+        const content = chunk.choices[0]?.delta?.content || "";
+        if (content) {
+          fullContent += content;
+          chunkCount++;
+
+          // Update the message with accumulated content (batch updates every few chunks for efficiency)
+          if (chunkCount % 3 === 0 || content.includes("\n")) {
+            await ctx.runMutation(internal.messages.updateContent, {
+              messageId: assistantMessageId,
+              content: fullContent,
+            });
+          }
+        }
+
+        // Update metadata if available
+        if (chunk.usage) {
+          metadata.tokens = chunk.usage.total_tokens;
+        }
+        if (chunk.choices[0]?.finish_reason) {
+          metadata.finishReason = chunk.choices[0].finish_reason;
+        }
+      }
+
+      // Final content and metadata update
+      await ctx.runMutation(internal.messages.updateContent, {
+        messageId: assistantMessageId,
+        content: fullContent,
+      });
+
+      await ctx.runMutation(internal.messages.updateMetadata, {
+        messageId: assistantMessageId,
+        metadata,
+      });
+
+      console.log(`Streaming completed for message ${assistantMessageId}`);
+    } catch (error) {
+      console.error("Error generating streaming AI response:", error);
+
+      if (assistantMessageId) {
+        // Update the existing message with error content
+        await ctx.runMutation(internal.messages.updateContent, {
+          messageId: assistantMessageId,
+          content:
+            "I apologize, but I encountered an error while generating a response. Please try again.",
+        });
+
+        await ctx.runMutation(internal.messages.updateMetadata, {
+          messageId: assistantMessageId,
+          metadata: {
+            ...metadata,
+            error: error instanceof Error ? error.message : "Unknown error",
+          },
+        });
+      } else {
+        // Create error message if we couldn't create the assistant message
+        await ctx.runMutation(internal.messages.addInternal, {
+          chatId: args.chatId,
+          content:
+            "I apologize, but I encountered an error while generating a response. Please try again.",
+          role: "assistant",
+          parentId: args.parentMessageId,
+          metadata: {
+            ...metadata,
+            error: error instanceof Error ? error.message : "Unknown error",
+          },
+        });
+      }
+    }
   },
 });

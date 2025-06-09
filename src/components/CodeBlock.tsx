@@ -24,7 +24,7 @@ export function CodeBlock({ language, code }: CodeBlockProps) {
         <span>{language}</span>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-2 px-2 py-1 hover:bg-gray-700 rounded transition-colors"
+          className="flex items-center gap-2 px-2 py-1 hover:bg-gray-700 rounded transition-colors text-white"
         >
           {copied ? (
             <>

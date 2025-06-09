@@ -15,6 +15,7 @@ export function Settings({ onClose }: SettingsProps) {
   const [anthropicKey, setAnthropicKey] = useState("");
   const [googleKey, setGoogleKey] = useState("");
   const [openrouterKey, setOpenrouterKey] = useState("");
+  const [deepseekKey, setDeepseekKey] = useState("");
   const [theme, setTheme] = useState<"light" | "dark" | "auto">("auto");
   const [streamingEnabled, setStreamingEnabled] = useState(true);
 
@@ -25,6 +26,7 @@ export function Settings({ onClose }: SettingsProps) {
       setAnthropicKey((settings as any).apiKeys?.anthropic || "");
       setGoogleKey((settings as any).apiKeys?.google || "");
       setOpenrouterKey((settings as any).apiKeys?.openrouter || "");
+      setDeepseekKey((settings as any).apiKeys?.deepseek || "");
       setTheme((settings as any).preferences?.theme || "auto");
       setStreamingEnabled(settings.preferences?.streamingEnabled ?? true);
     }
@@ -39,6 +41,7 @@ export function Settings({ onClose }: SettingsProps) {
           anthropic: anthropicKey || undefined,
           google: googleKey || undefined,
           openrouter: openrouterKey || undefined,
+          deepseek: deepseekKey || undefined,
         },
         preferences: {
           theme,
@@ -110,6 +113,9 @@ export function Settings({ onClose }: SettingsProps) {
                     Gemini 1.5 Flash
                   </option>
                   <option value="google/gemini-pro-1.5">Gemini 1.5 Pro</option>
+                  <option value="google/gemini-2.5-flash-preview-05-20">
+                    Gemini 2.5 Flash Preview
+                  </option>
                   <option value="meta-llama/llama-3.1-405b-instruct">
                     Llama 3.1 405B
                   </option>
@@ -118,6 +124,9 @@ export function Settings({ onClose }: SettingsProps) {
                   </option>
                   <option value="meta-llama/llama-3.3-8b-instruct:free">
                     Llama 3.3 8B (Free)
+                  </option>
+                  <option value="deepseek/deepseek-chat-v3-0324:free">
+                    DeepSeek Chat V3
                   </option>
                 </select>
               </div>

@@ -197,13 +197,22 @@ export const sendMessage = action({
     parentId: v.optional(v.id("messages")),
   },
   handler: async (ctx, args): Promise<any> => {
+    console.log(
+      `SendMessage called for chat ${args.chatId} with content: "${args.content}"`
+    );
+
     // Check if this is the first user message in the chat
     const existingMessages = await ctx.runQuery(api.messages.list, {
       chatId: args.chatId,
     });
 
-    const isFirstUserMessage =
-      existingMessages.filter((msg) => msg.role === "user").length === 0;
+    console.log(`Found ${existingMessages.length} existing messages`);
+
+    const userMessages = existingMessages.filter((msg) => msg.role === "user");
+    console.log(`Found ${userMessages.length} existing user messages`);
+
+    const isFirstUserMessage = userMessages.length === 0;
+    console.log(`Is first user message: ${isFirstUserMessage}`);
 
     // Add user message
     const userMessageId: any = await ctx.runMutation(api.messages.add, {
@@ -214,16 +223,22 @@ export const sendMessage = action({
       parentId: args.parentId,
     });
 
+    console.log(`Added user message with ID: ${userMessageId}`);
+
     // Generate chat title for the first user message
     if (isFirstUserMessage) {
+      console.log("Triggering title generation...");
       await ctx.runAction(internal.ai.generateChatTitle, {
         chatId: args.chatId,
         firstUserMessage: args.content,
       });
+    } else {
+      console.log("Skipping title generation - not first user message");
     }
 
-    // Generate AI response
-    await ctx.runAction(internal.ai.generateResponse, {
+    // Generate AI response with streaming
+    console.log("Triggering streaming AI response generation...");
+    await ctx.runAction(internal.ai.generateStreamingResponse, {
       chatId: args.chatId,
       parentMessageId: userMessageId,
     });
@@ -258,5 +273,34 @@ export const branch = mutation({
     });
 
     return branchId;
+  },
+});
+
+export const updateContent = internalMutation({
+  args: {
+    messageId: v.id("messages"),
+    content: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.messageId, {
+      content: args.content,
+    });
+  },
+});
+
+export const updateMetadata = internalMutation({
+  args: {
+    messageId: v.id("messages"),
+    metadata: v.object({
+      model: v.optional(v.string()),
+      tokens: v.optional(v.number()),
+      finishReason: v.optional(v.string()),
+      error: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.messageId, {
+      metadata: args.metadata,
+    });
   },
 });

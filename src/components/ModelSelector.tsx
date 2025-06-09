@@ -49,6 +49,11 @@ const MODELS = [
     name: "Llama 3.3 8B (Free)",
     provider: "Meta",
   },
+  {
+    id: "deepseek/deepseek-chat-v3-0324:free",
+    name: "DeepSeek Chat V3",
+    provider: "DeepSeek",
+  },
 ];
 
 export function ModelSelector({

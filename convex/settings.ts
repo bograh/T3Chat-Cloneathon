@@ -16,7 +16,7 @@ export const get = query({
     return (
       settings || {
         userId,
-        defaultModel: "openai/gpt-4o-mini",
+        defaultModel: "deepseek/deepseek-chat-v3-0324:free",
         preferences: {
           theme: "auto",
           codeTheme: "github-dark",
@@ -36,6 +36,7 @@ export const update = mutation({
         anthropic: v.optional(v.string()),
         google: v.optional(v.string()),
         openrouter: v.optional(v.string()),
+        deepseek: v.optional(v.string()),
       })
     ),
     preferences: v.optional(
