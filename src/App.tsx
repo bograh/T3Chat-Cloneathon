@@ -27,7 +27,7 @@ export default function App() {
       <Authenticated>
         <ChatApp />
       </Authenticated>
-      
+
       <Unauthenticated>
         <header className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm h-16 flex justify-between items-center border-b shadow-sm px-4">
           <h2 className="text-xl font-semibold text-primary">AI Chat</h2>
@@ -38,7 +38,7 @@ export default function App() {
           </div>
         </main>
       </Unauthenticated>
-      
+
       <Toaster />
     </div>
   );

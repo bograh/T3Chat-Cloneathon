@@ -28,7 +28,7 @@ export function ChatApp() {
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
-      
+
       <div className="flex-1 flex flex-col">
         {showSettings ? (
           <Settings onClose={() => setShowSettings(false)} />

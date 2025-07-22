@@ -54,6 +54,16 @@ const MODELS = [
     name: "DeepSeek Chat V3",
     provider: "DeepSeek",
   },
+  {
+    id: "deepseek/deepseek-r1-0528:free",
+    name: "DeepSeek R1",
+    provider: "DeepSeek",
+  },
+  {
+    id: "qwen/qwen3-235b-a22b-07-25:free",
+    name: "Qwen 3.2 235B",
+    provider: "Qwen",
+  },
 ];
 
 export function ModelSelector({

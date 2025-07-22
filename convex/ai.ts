@@ -21,6 +21,8 @@ const MODELS = {
   "meta-llama/llama-3.1-70b-instruct": { name: "Llama 3.1 70B" },
   "meta-llama/llama-3.3-8b-instruct:free": { name: "Llama 3.3 8B (Free)" },
   "deepseek/deepseek-chat-v3-0324:free": { name: "DeepSeek Chat V3" },
+  "deepseek/deepseek-r1-0528:free": { name: "DeepSeek R1" },
+  "qwen/qwen3-235b-a22b-07-25:free": { name: " Qwen 3.2 235B" },
 };
 
 export const generateResponse = internalAction({
@@ -169,9 +171,7 @@ export const generateChatTitle = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
-      console.log(
-        `Starting title generation for chat ${args.chatId} with message: "${args.firstUserMessage}"`
-      );
+      console.log(`Starting title generation for chat ${args.chatId}`);
 
       const apiKey = process.env.OPENROUTER_API_KEY;
 
@@ -190,7 +190,7 @@ export const generateChatTitle = internalAction({
       console.log("Calling OpenRouter API for title generation...");
 
       const completion = await openai.chat.completions.create({
-        model: "meta-llama/llama-3.3-8b-instruct:free",
+        model: "qwen/qwen3-235b-a22b-07-25:free",
         messages: [
           {
             role: "system",
